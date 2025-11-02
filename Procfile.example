@@ -1,0 +1,6 @@
+# 示例 Procfile（供 Railway 解析用，避免与 backend/Procfile 冲突）
+# 如需让 Railway 直接使用根目录 Procfile，请将本文件重命名为 `Procfile`
+# 并确保你的服务链接的是仓库根目录。
+
+web: cd backend && gunicorn -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:$PORT --workers 2
+

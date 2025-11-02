@@ -1,0 +1,59 @@
+name: Backend CI
+
+on:
+  push:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Basic import check
+        run: |
+          python - << 'PY'
+          import importlib
+          for m in ("fastapi", "uvicorn"):
+              importlib.import_module(m)
+          print("Imports OK")
+          PY
+
+      - name: Compile sources
+        run: python -m compileall -q backend
+
+      - name: Trigger Railway Deploy (main branch)
+        if: ${{ github.ref == 'refs/heads/main' && secrets.RAILWAY_TOKEN != '' }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_ENV_ID: ${{ secrets.RAILWAY_ENV_ID }}
+          RAILWAY_SERVICE: ${{ secrets.RAILWAY_SERVICE }}
+        run: |
+          npm i -g @railway/cli
+          if [ -n "$RAILWAY_PROJECT_ID" ]; then
+            railway link --project "$RAILWAY_PROJECT_ID" ${RAILWAY_ENV_ID:+--environment "$RAILWAY_ENV_ID"} || true
+          fi
+          if [ -n "$RAILWAY_SERVICE" ]; then
+            railway up --path backend --service "$RAILWAY_SERVICE"
+          else
+            railway up --path backend
+          fi
+
